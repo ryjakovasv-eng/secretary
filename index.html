@@ -1,0 +1,913 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#f5f2ec">
+<title>Секретарь</title>
+<style>
+  :root{
+    --ink:#2a3038; --muted:#7e8a94; --line:#e6e2da;
+    --bg:#f5f2ec; --card:#ffffff;
+    --addone:#4a7fb5;
+    --staff:#d18a3a;
+    --gas:#7c5fae;
+    --done:#7cb98a;
+    --warn:#d97b7b;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent}
+  html,body{margin:0;padding:0}
+  body{
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;
+    background:var(--bg); color:var(--ink); font-size:17px; line-height:1.45;
+    min-height:100vh; padding-bottom:120px;
+    -webkit-text-size-adjust:100%;
+  }
+
+  header{
+    position:sticky; top:0; z-index:30; background:rgba(245,242,236,.92);
+    backdrop-filter:blur(12px); -webkit-backdrop-filter:blur(12px);
+    border-bottom:1px solid var(--line); padding:12px 16px 10px;
+  }
+  header h1{ font-size:1.15rem; margin:0 0 10px; letter-spacing:.01em; }
+
+  .tabs{ display:flex; gap:8px; overflow-x:auto; padding-bottom:2px; }
+  .tabs::-webkit-scrollbar{ display:none; }
+  .tab{
+    font:inherit; font-size:.92rem; font-weight:700;
+    padding:10px 16px; border-radius:999px;
+    border:1.5px solid var(--line); background:#fff; color:var(--muted);
+    white-space:nowrap; cursor:pointer; transition:.15s;
+  }
+  .tab.on{ color:#fff; border-color:transparent; }
+  .tab[data-c="all"].on{    background:#5a6b76; }
+  .tab[data-c="addone"].on{ background:var(--addone); }
+  .tab[data-c="staff"].on{  background:var(--staff); }
+  .tab[data-c="gas"].on{    background:var(--gas); }
+
+  main{ max-width:640px; margin:0 auto; padding:16px; }
+
+  .task{
+    background:var(--card); border-radius:20px; padding:16px 16px 14px;
+    margin-bottom:12px; box-shadow:0 3px 14px rgba(40,60,70,.06);
+    border-left:6px solid var(--line);
+    transition:.2s;
+  }
+  .task.addone{ border-left-color:var(--addone); }
+  .task.staff{  border-left-color:var(--staff); }
+  .task.gas{    border-left-color:var(--gas); }
+  .task.overdue{ background:#fff5f3; border-left-color:var(--warn); animation:pulse 2s ease-in-out infinite; }
+  @keyframes pulse{
+    0%,100%{ box-shadow:0 3px 14px rgba(40,60,70,.06) }
+    50%{ box-shadow:0 3px 22px rgba(217,123,123,.35) }
+  }
+  .task.done{ opacity:.5; }
+  .task.done .task-text{ text-decoration:line-through; }
+
+  .task-top{ display:flex; align-items:flex-start; gap:10px; }
+  .task-text{ flex:1; font-weight:700; font-size:1.08rem; line-height:1.35; }
+  .task-meta{
+    margin-top:8px; font-size:.88rem; color:var(--muted);
+    display:flex; flex-wrap:wrap; gap:12px; align-items:center;
+  }
+  .dot{
+    width:8px; height:8px; border-radius:50%; display:inline-block;
+    margin-right:6px; vertical-align:middle;
+  }
+  .dot.addone{ background:var(--addone); }
+  .dot.staff{  background:var(--staff); }
+  .dot.gas{    background:var(--gas); }
+  .badge{
+    font-size:.75rem; font-weight:800; padding:3px 9px; border-radius:999px;
+    text-transform:uppercase; letter-spacing:.05em;
+  }
+  .badge.overdue{ background:#fbe0dd; color:#a94a44; }
+  .badge.repeat{ background:#eef1f4; color:#5a6b76; }
+
+  .task-actions{ display:flex; gap:8px; margin-top:12px; flex-wrap:wrap; }
+  .mini{
+    font:inherit; font-size:.9rem; font-weight:700; padding:10px 14px;
+    border-radius:12px; border:1.5px solid var(--line); background:#fbfaf7;
+    color:var(--ink); cursor:pointer; transition:.12s;
+  }
+  .mini:active{ transform:scale(.96); }
+  .mini.ok{ background:#e6f3e9; border-color:#b9ddc3; color:#3d7d52; }
+  .mini.no{ background:#fbeaea; border-color:#f0c6c6; color:#a94a44; }
+
+  .empty{
+    text-align:center; padding:60px 20px; color:var(--muted);
+    line-height:1.6;
+  }
+  .empty .big{ font-size:3rem; display:block; margin-bottom:12px; }
+
+  .section-title{
+    font-size:.8rem; font-weight:800; text-transform:uppercase;
+    letter-spacing:.1em; color:var(--muted);
+    margin:22px 4px 10px;
+  }
+
+  .dock{
+    position:fixed; left:0; right:0; bottom:0; z-index:25;
+    padding:14px 16px calc(14px + env(safe-area-inset-bottom));
+    background:linear-gradient(to top, var(--bg) 55%, rgba(245,242,236,0));
+    display:flex; gap:10px; align-items:center; justify-content:center;
+    max-width:640px; margin:0 auto;
+  }
+  .mic{
+    flex:1; max-width:340px;
+    display:flex; align-items:center; justify-content:center; gap:10px;
+    padding:18px 22px; border-radius:22px; border:none;
+    background:linear-gradient(135deg,#4a7fb5,#3d6b9c);
+    color:#fff; font:inherit; font-weight:800; font-size:1.1rem;
+    box-shadow:0 8px 22px rgba(74,127,181,.35);
+    cursor:pointer; transition:.15s;
+  }
+  .mic:active{ transform:scale(.97); }
+  .mic.rec{ background:linear-gradient(135deg,#e06060,#c94a4a); animation:recPulse 1.2s ease infinite; }
+  @keyframes recPulse{
+    0%,100%{ box-shadow:0 8px 22px rgba(224,96,96,.35) }
+    50%{ box-shadow:0 8px 30px rgba(224,96,96,.7) }
+  }
+  .mic svg{ width:22px; height:22px; flex:0 0 auto; }
+  .add-mini{
+    padding:18px 20px; border-radius:22px; border:1.5px solid var(--line);
+    background:#fff; color:var(--muted); font:inherit; font-weight:800;
+    cursor:pointer; box-shadow:0 4px 14px rgba(40,60,70,.08);
+  }
+  .add-mini:active{ transform:scale(.96); }
+
+  .sheet{
+    position:fixed; inset:0; z-index:50;
+    background:rgba(30,40,50,.45);
+    display:none; align-items:flex-end; justify-content:center;
+    padding:0;
+  }
+  .sheet.on{ display:flex; }
+  .sheet-inner{
+    width:100%; max-width:640px; background:#fff;
+    border-radius:26px 26px 0 0; padding:22px 20px calc(22px + env(safe-area-inset-bottom));
+    max-height:92vh; overflow-y:auto;
+    animation:slideUp .25s ease;
+  }
+  @keyframes slideUp{ from{ transform:translateY(30px); opacity:.4 } to{ transform:none; opacity:1 } }
+  .sheet h2{ font-size:1.2rem; margin:0 0 16px; }
+
+  label.f{ display:block; margin-bottom:16px; }
+  label.f > span{
+    display:block; font-size:.78rem; font-weight:800; text-transform:uppercase;
+    letter-spacing:.08em; color:var(--muted); margin-bottom:6px;
+  }
+  textarea, input[type="time"], input[type="date"], input[type="text"]{
+    width:100%; font:inherit; font-size:1.08rem; color:var(--ink);
+    padding:14px 16px; border-radius:14px; border:1.5px solid var(--line);
+    background:#fbfaf7; outline:none;
+  }
+  textarea{ min-height:80px; resize:vertical; line-height:1.45; }
+  textarea:focus, input:focus{ border-color:#7aa8d4; background:#fff; }
+
+  .seg{ display:flex; gap:8px; flex-wrap:wrap; }
+  .seg button{
+    flex:1 1 30%; min-width:90px;
+    font:inherit; font-size:.9rem; font-weight:700;
+    padding:13px 8px; border-radius:14px; border:1.5px solid var(--line);
+    background:#fbfaf7; color:var(--muted); cursor:pointer;
+  }
+  .seg button.on{ color:#fff; border-color:transparent; }
+  .seg button[data-v="addone"].on{ background:var(--addone); }
+  .seg button[data-v="staff"].on{  background:var(--staff); }
+  .seg button[data-v="gas"].on{    background:var(--gas); }
+  .seg button[data-v="today"].on{  background:#5a6b76; }
+  .seg button[data-v="tomorrow"].on{ background:#5a6b76; }
+
+  .row2{ display:flex; gap:10px; }
+  .row2 > *{ flex:1; }
+
+  .row-btns{ display:flex; gap:10px; margin-top:8px; }
+  .big{
+    flex:1; font:inherit; font-size:1.1rem; font-weight:800;
+    padding:17px; border-radius:18px; border:none; cursor:pointer;
+    transition:.12s;
+  }
+  .big:active{ transform:scale(.97); }
+  .big.primary{ background:linear-gradient(135deg,#4a7fb5,#3d6b9c); color:#fff; box-shadow:0 6px 18px rgba(74,127,181,.32); }
+  .big.ghost{ background:#f2efe8; color:var(--muted); }
+
+  .toast-wrap{
+    position:fixed; top:14px; left:50%; transform:translateX(-50%);
+    z-index:100; width:calc(100% - 28px); max-width:520px;
+    display:flex; flex-direction:column; gap:10px; pointer-events:none;
+  }
+  .toast{
+    background:#fff; border-radius:20px; padding:16px 18px;
+    box-shadow:0 10px 32px rgba(30,50,70,.28);
+    border-left:6px solid var(--warn);
+    pointer-events:auto;
+    animation:dropIn .3s cubic-bezier(.2,1.2,.4,1);
+  }
+  @keyframes dropIn{ from{ transform:translateY(-24px); opacity:0 } to{ transform:none; opacity:1 } }
+  .toast .t-title{ font-weight:800; font-size:1.05rem; margin-bottom:4px; }
+  .toast .t-body{ color:var(--muted); font-size:.95rem; margin-bottom:12px; }
+  .toast .t-actions{ display:flex; gap:8px; }
+  .toast .t-actions button{
+    flex:1; font:inherit; font-size:.9rem; font-weight:700;
+    padding:11px; border-radius:12px; border:none; cursor:pointer;
+  }
+  .toast .t-actions .done{ background:#e6f3e9; color:#3d7d52; }
+  .toast .t-actions .snooze{ background:#f0f3f6; color:#5a6b76; }
+
+  .warn-bar{
+    background:#fff5e6; border:1.5px solid #f2d9a8; border-radius:14px;
+    padding:12px 14px; font-size:.9rem; color:#8a6530; margin-bottom:16px;
+    line-height:1.4;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>📋 Секретарь</h1>
+  <div class="tabs">
+    <button class="tab on" data-c="all">Всё</button>
+    <button class="tab" data-c="addone">Addone</button>
+    <button class="tab" data-c="staff">Стафф</button>
+    <button class="tab" data-c="gas">Дом</button>
+  </div>
+</header>
+
+<main>
+  <div id="warnBar"></div>
+  <div id="list"></div>
+</main>
+
+<div class="dock">
+  <button class="mic" id="micBtn">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
+      <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+      <line x1="12" y1="19" x2="12" y2="23"/>
+      <line x1="8" y1="23" x2="16" y2="23"/>
+    </svg>
+    <span id="micLabel">Сказать задачу</span>
+  </button>
+  <button class="add-mini" id="addBtn" title="Ввести вручную">✏️</button>
+</div>
+
+<div class="sheet" id="sheet">
+  <div class="sheet-inner">
+    <h2 id="sheetTitle">Новая задача</h2>
+
+    <label class="f">
+      <span>Что сделать</span>
+      <textarea id="fText" placeholder="Например: позвонить Иванову по офферу"></textarea>
+    </label>
+
+    <label class="f">
+      <span>Поток</span>
+      <div class="seg" id="segCompany">
+        <button type="button" data-v="addone">Addone</button>
+        <button type="button" data-v="staff">Стафф</button>
+        <button type="button" data-v="gas">Дом</button>
+      </div>
+    </label>
+
+    <label class="f">
+      <span>Когда</span>
+      <div class="seg" id="segDay">
+        <button type="button" data-v="today">Сегодня</button>
+        <button type="button" data-v="tomorrow">Завтра</button>
+      </div>
+    </label>
+
+    <div class="row2" style="margin-bottom:16px">
+      <label class="f" style="margin:0">
+        <span>Время</span>
+        <input type="time" id="fTime" value="10:00">
+      </label>
+      <label class="f" style="margin:0">
+        <span>Дата</span>
+        <input type="date" id="fDate">
+      </label>
+    </div>
+
+    <label class="f">
+      <span>Напоминать повторно</span>
+      <div class="seg" id="segRepeat">
+        <button type="button" data-v="5">каждые 5 мин</button>
+        <button type="button" data-v="15">15 мин</button>
+        <button type="button" data-v="30">30 мин</button>
+        <button type="button" data-v="60">1 час</button>
+      </div>
+    </label>
+
+    <div class="row-btns">
+      <button class="big ghost" id="cancelBtn">Отмена</button>
+      <button class="big primary" id="saveBtn">Сохранить</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast-wrap" id="toastWrap"></div>
+
+<script>
+(function(){
+"use strict";
+
+const COMPANY_LABEL = {
+  addone: "Addone",
+  staff:  "Стафф",
+  gas:    "Дом"
+};
+const COMPANY_ORDER = ["addone", "staff", "gas"];
+
+const LS = "secretary_v2";
+let state = {
+  activeFilter: "all",
+  tasks: []
+};
+
+function save(){
+  try{ localStorage.setItem(LS, JSON.stringify(state)); }catch(e){}
+}
+function load(){
+  try{
+    const raw = localStorage.getItem(LS);
+    if(raw){
+      const d = JSON.parse(raw);
+      if(d && Array.isArray(d.tasks)) state = Object.assign(state, d);
+    }
+  }catch(e){}
+}
+
+const $ = function(id){ return document.getElementById(id); };
+function uid(){ return Date.now().toString(36) + Math.random().toString(36).slice(2,6); }
+function pad(n){ return n < 10 ? "0" + n : "" + n; }
+function fmtTime(ts){
+  const d = new Date(ts);
+  return pad(d.getHours()) + ":" + pad(d.getMinutes());
+}
+function fmtDate(ts){
+  const d = new Date(ts);
+  const today = new Date(); today.setHours(0,0,0,0);
+  const t = new Date(ts); t.setHours(0,0,0,0);
+  const diff = Math.round((t - today) / 86400000);
+  if(diff === 0) return "сегодня";
+  if(diff === 1) return "завтра";
+  if(diff === -1) return "вчера";
+  return d.toLocaleDateString("ru-RU", { day: "numeric", month: "short" });
+}
+function fmtRepeat(min){
+  if(min === 5) return "каждые 5 мин";
+  if(min === 15) return "каждые 15 мин";
+  if(min === 30) return "каждые 30 мин";
+  if(min === 60) return "каждый час";
+  return "каждые " + min + " мин";
+}
+function labelOf(c){ return COMPANY_LABEL[c] || c; }
+
+function parseWhen(text){
+  const lower = text.toLowerCase();
+  const now = new Date();
+  let dayOffset = null;
+
+  if(/послезавтра/.test(lower)) dayOffset = 2;
+  else if(/\bзавтра\b/.test(lower)) dayOffset = 1;
+  else if(/\bсегодня\b/.test(lower)) dayOffset = 0;
+
+  let hour = null, min = 0;
+  let m = lower.match(/(\d{1,2})[:\s.](\d{2})(?!\d)/);
+  if(m){
+    hour = +m[1]; min = +m[2];
+  } else {
+    m = lower.match(/(?:^|\s)(?:в|к)\s+(\d{1,2})(?:\s|$|,)/);
+    if(m) hour = +m[1];
+  }
+
+  if(hour === null || hour > 23 || min > 59) return null;
+
+  let d = new Date(now);
+  d.setHours(hour, min, 0, 0);
+  if(dayOffset === null){
+    if(d.getTime() <= now.getTime()) d.setDate(d.getDate() + 1);
+  } else {
+    d.setDate(d.getDate() + dayOffset);
+    if(dayOffset === 0 && d.getTime() <= now.getTime()){
+      d.setDate(d.getDate() + 1);
+    }
+  }
+  return d.getTime();
+}
+
+let audioCtx = null;
+function unlockAudio(){
+  if(!audioCtx){
+    try{ audioCtx = new (window.AudioContext || window.webkitAudioContext)(); }catch(e){}
+  }
+  if(audioCtx && audioCtx.state === "suspended") audioCtx.resume();
+}
+function beep(){
+  if(!audioCtx) return;
+  const t0 = audioCtx.currentTime;
+  for(let i = 0; i < 3; i++){
+    const t = t0 + i * 0.28;
+    const o = audioCtx.createOscillator();
+    const g = audioCtx.createGain();
+    o.type = "sine";
+    o.frequency.value = i === 2 ? 1100 : 880;
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(0.35, t + 0.02);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + 0.22);
+    o.connect(g); g.connect(audioCtx.destination);
+    o.start(t); o.stop(t + 0.25);
+  }
+}
+
+function askNotify(){
+  if(!("Notification" in window)) return;
+  if(Notification.permission === "default"){
+    try{ Notification.requestPermission(); }catch(e){}
+  }
+}
+function notify(title, body){
+  if(!("Notification" in window)) return;
+  if(Notification.permission !== "granted") return;
+  try{
+    const n = new Notification(title, {
+      body: body, tag: "secretary-alarm", requireInteraction: true
+    });
+    setTimeout(function(){ try{ n.close(); }catch(e){} }, 60000);
+  }catch(e){}
+}
+
+const toastWrap = $("toastWrap");
+function showToast(task){
+  const t = document.createElement("div");
+  t.className = "toast";
+  const title = document.createElement("div");
+  title.className = "t-title";
+  title.textContent = "🔔 " + task.text;
+  const body = document.createElement("div");
+  body.className = "t-body";
+  body.textContent = labelOf(task.company) + " · " + fmtTime(task.due);
+  const acts = document.createElement("div");
+  acts.className = "t-actions";
+
+  const doneBtn = document.createElement("button");
+  doneBtn.className = "done";
+  doneBtn.textContent = "✔ Готово";
+  doneBtn.onclick = function(){
+    task.done = true; task.doneAt = Date.now();
+    save(); render(); t.remove();
+  };
+
+  const snzBtn = document.createElement("button");
+  snzBtn.className = "snooze";
+  snzBtn.textContent = "⏰ +" + task.repeatMin + " мин";
+  snzBtn.onclick = function(){
+    task.due = Date.now() + task.repeatMin * 60000;
+    task.lastPing = null;
+    save(); render(); t.remove();
+  };
+
+  acts.appendChild(doneBtn);
+  acts.appendChild(snzBtn);
+  t.appendChild(title);
+  t.appendChild(body);
+  t.appendChild(acts);
+  toastWrap.appendChild(t);
+
+  setTimeout(function(){ if(t.parentNode) t.remove(); }, 60000);
+}
+
+function checkReminders(){
+  const now = Date.now();
+  let changed = false;
+  state.tasks.forEach(function(t){
+    if(t.done) return;
+    if(t.due > now) return;
+    const wait = (t.repeatMin || 15) * 60000;
+    if(t.lastPing && (now - t.lastPing) < wait) return;
+
+    t.lastPing = now;
+    changed = true;
+
+    beep();
+    if(navigator.vibrate) try{ navigator.vibrate([220, 120, 220, 120, 320]); }catch(e){}
+    notify("Напоминание", t.text + " · " + labelOf(t.company));
+    showToast(t);
+    document.title = "🔔 " + t.text;
+    setTimeout(function(){
+      const next = state.tasks.find(function(x){ return !x.done && x.due <= Date.now(); });
+      document.title = next ? "🔔 " + next.text : "Секретарь";
+    }, 8000);
+  });
+  if(changed) save();
+}
+setInterval(checkReminders, 10000);
+
+const list = $("list");
+
+function render(){
+  list.innerHTML = "";
+
+  const filter = state.activeFilter;
+  const visible = state.tasks.filter(function(t){
+    return filter === "all" || t.company === filter;
+  });
+
+  const now = Date.now();
+  const active = visible.filter(function(t){ return !t.done; });
+  const done = visible.filter(function(t){ return t.done; });
+
+  active.sort(function(a,b){ return a.due - b.due; });
+  done.sort(function(a,b){ return (b.doneAt || 0) - (a.doneAt || 0); });
+
+  if(active.length === 0 && done.length === 0){
+    const e = document.createElement("div");
+    e.className = "empty";
+    e.innerHTML = '<span class="big">🎤</span>Нажмите «Сказать задачу»<br>и продиктуйте, что нужно сделать.';
+    list.appendChild(e);
+    return;
+  }
+
+  if(active.length){
+    const st = document.createElement("div");
+    st.className = "section-title";
+    st.textContent = "Активные · " + active.length;
+    list.appendChild(st);
+    active.forEach(function(t){ list.appendChild(makeTask(t, now)); });
+  }
+
+  if(done.length){
+    const st = document.createElement("div");
+    st.className = "section-title";
+    st.textContent = "Выполненные · " + done.length;
+    list.appendChild(st);
+    done.forEach(function(t){ list.appendChild(makeTask(t, now)); });
+  }
+}
+
+function makeTask(t, now){
+  const c = document.createElement("div");
+  c.className = "task " + t.company;
+  const overdue = !t.done && t.due <= now;
+  if(overdue) c.classList.add("overdue");
+  if(t.done) c.classList.add("done");
+
+  const top = document.createElement("div");
+  top.className = "task-top";
+  const txt = document.createElement("div");
+  txt.className = "task-text";
+  txt.textContent = t.text;
+  top.appendChild(txt);
+  c.appendChild(top);
+
+  const meta = document.createElement("div");
+  meta.className = "task-meta";
+
+  const comp = document.createElement("span");
+  comp.innerHTML = '<span class="dot ' + t.company + '"></span>' + labelOf(t.company);
+  meta.appendChild(comp);
+
+  const when = document.createElement("span");
+  when.textContent = "⏰ " + fmtDate(t.due) + " " + fmtTime(t.due);
+  meta.appendChild(when);
+
+  if(!t.done && t.repeatMin){
+    const rep = document.createElement("span");
+    rep.className = "badge repeat";
+    rep.textContent = fmtRepeat(t.repeatMin);
+    meta.appendChild(rep);
+  }
+
+  if(overdue){
+    const ov = document.createElement("span");
+    ov.className = "badge overdue";
+    ov.textContent = "просрочено";
+    meta.appendChild(ov);
+  }
+
+  c.appendChild(meta);
+
+  const acts = document.createElement("div");
+  acts.className = "task-actions";
+
+  if(!t.done){
+    const ok = document.createElement("button");
+    ok.className = "mini ok";
+    ok.textContent = "✔ Готово";
+    ok.onclick = function(){
+      t.done = true; t.doneAt = Date.now();
+      save(); render();
+    };
+
+    const snz = document.createElement("button");
+    snz.className = "mini";
+    snz.textContent = "⏰ Отложить";
+    snz.onclick = function(){
+      t.due = now + (t.repeatMin || 15) * 60000;
+      t.lastPing = null;
+      save(); render();
+    };
+
+    const edit = document.createElement("button");
+    edit.className = "mini";
+    edit.textContent = "✏️";
+    edit.title = "Изменить";
+    edit.onclick = function(){ openSheet(t); };
+
+    acts.appendChild(ok);
+    acts.appendChild(snz);
+    acts.appendChild(edit);
+  } else {
+    const back = document.createElement("button");
+    back.className = "mini";
+    back.textContent = "↺ Вернуть";
+    back.onclick = function(){
+      t.done = false; t.doneAt = null; t.lastPing = null;
+      save(); render();
+    };
+    acts.appendChild(back);
+  }
+
+  const del = document.createElement("button");
+  del.className = "mini no";
+  del.textContent = "🗑";
+  del.title = "Удалить";
+  del.onclick = function(){
+    if(!confirm("Удалить задачу?\n\n" + t.text)) return;
+    const i = state.tasks.indexOf(t);
+    if(i > -1) state.tasks.splice(i, 1);
+    save(); render();
+  };
+  acts.appendChild(del);
+
+  c.appendChild(acts);
+  return c;
+}
+
+const sheet = $("sheet");
+const fText = $("fText");
+const fTime = $("fTime");
+const fDate = $("fDate");
+const sheetTitle = $("sheetTitle");
+const segCompany = $("segCompany");
+const segRepeat  = $("segRepeat");
+const segDay     = $("segDay");
+
+let editingId = null;
+let selected = { company: "addone", repeatMin: 15, day: "today" };
+
+function setSeg(container, value){
+  container.querySelectorAll("button").forEach(function(b){
+    b.classList.toggle("on", b.getAttribute("data-v") === String(value));
+  });
+}
+[segCompany, segRepeat, segDay].forEach(function(seg){
+  seg.addEventListener("click", function(e){
+    const b = e.target.closest("button");
+    if(!b) return;
+    const v = b.getAttribute("data-v");
+    if(seg === segCompany){
+      selected.company = v;
+      setSeg(segCompany, v);
+    } else if(seg === segRepeat){
+      selected.repeatMin = +v;
+      setSeg(segRepeat, v);
+    } else {
+      selected.day = v;
+      setSeg(segDay, v);
+      const d = new Date();
+      if(v === "tomorrow") d.setDate(d.getDate() + 1);
+      fDate.value = d.toISOString().slice(0,10);
+    }
+  });
+});
+
+function todayISO(offset){
+  const d = new Date();
+  d.setDate(d.getDate() + (offset || 0));
+  return d.toISOString().slice(0,10);
+}
+
+function openSheet(task, presetText){
+  editingId = task ? task.id : null;
+  sheetTitle.textContent = task ? "Изменить задачу" : "Новая задача";
+
+  if(task){
+    fText.value = task.text;
+    selected.company = task.company;
+    selected.repeatMin = task.repeatMin;
+    const d = new Date(task.due);
+    fTime.value = pad(d.getHours()) + ":" + pad(d.getMinutes());
+    fDate.value = d.toISOString().slice(0,10);
+    selected.day = d.toISOString().slice(0,10) === todayISO(0) ? "today" : "tomorrow";
+  } else {
+    fText.value = presetText || "";
+    selected.company = (state.activeFilter !== "all" && COMPANY_LABEL[state.activeFilter])
+      ? state.activeFilter : "addone";
+    selected.repeatMin = 15;
+    selected.day = "today";
+    const d = new Date(Date.now() + 3600000);
+    d.setMinutes(Math.ceil(d.getMinutes() / 5) * 5, 0, 0);
+    fTime.value = pad(d.getHours()) + ":" + pad(d.getMinutes());
+    fDate.value = todayISO(0);
+  }
+
+  setSeg(segCompany, selected.company);
+  setSeg(segRepeat, selected.repeatMin);
+  setSeg(segDay, selected.day);
+
+  sheet.classList.add("on");
+  setTimeout(function(){ fText.focus(); }, 120);
+}
+
+function closeSheet(){
+  sheet.classList.remove("on");
+  editingId = null;
+}
+
+$("cancelBtn").onclick = closeSheet;
+sheet.addEventListener("click", function(e){
+  if(e.target === sheet) closeSheet();
+});
+
+$("saveBtn").onclick = function(){
+  const text = fText.value.trim();
+  if(!text){ alert("Напишите, что нужно сделать"); fText.focus(); return; }
+
+  const dateStr = fDate.value || todayISO(0);
+  const timeStr = fTime.value || "10:00";
+  const parts = dateStr.split("-");
+  const tp = timeStr.split(":");
+  const due = new Date(+parts[0], +parts[1] - 1, +parts[2], +tp[0], +tp[1], 0, 0).getTime();
+
+  if(isNaN(due)){ alert("Проверьте дату и время"); return; }
+
+  if(editingId){
+    const t = state.tasks.find(function(x){ return x.id === editingId; });
+    if(t){
+      t.text = text;
+      t.company = selected.company;
+      t.due = due;
+      t.repeatMin = selected.repeatMin;
+      t.lastPing = null;
+    }
+  } else {
+    state.tasks.push({
+      id: uid(),
+      text: text,
+      company: selected.company,
+      due: due,
+      repeatMin: selected.repeatMin,
+      done: false,
+      lastPing: null,
+      doneAt: null,
+      createdAt: Date.now()
+    });
+  }
+
+  save();
+  render();
+  closeSheet();
+  askNotify();
+  checkReminders();
+};
+
+const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+const micBtn = $("micBtn");
+const micLabel = $("micLabel");
+let recognition = null;
+let isRecording = false;
+let gotResult = false;
+
+function startVoice(){
+  if(!SR){
+    alert("Голосовой ввод не поддерживается этим браузером.\n\nРаботает в Chrome, Edge и на Android. На iPhone используйте кнопку ✏️ для ручного ввода.");
+    openSheet(null, "");
+    return;
+  }
+  unlockAudio();
+  askNotify();
+
+  if(!recognition){
+    recognition = new SR();
+    recognition.lang = "ru-RU";
+    recognition.continuous = false;
+    recognition.interimResults = true;
+    recognition.maxAlternatives = 1;
+
+    recognition.onresult = function(e){
+      let finalText = "";
+      let interim = "";
+      for(let i = 0; i < e.results.length; i++){
+        const r = e.results[i];
+        if(r.isFinal) finalText += r[0].transcript;
+        else interim += r[0].transcript;
+      }
+      const shown = (finalText || interim).trim();
+      if(shown){ fText.value = shown; }
+      if(finalText.trim()){
+        gotResult = true;
+      }
+    };
+
+    recognition.onerror = function(e){
+      if(e.error === "not-allowed" || e.error === "service-not-allowed"){
+        alert("Нет доступа к микрофону. Разрешите доступ в настройках браузера.");
+      }
+      stopVoice();
+    };
+
+    recognition.onend = function(){
+      stopVoice();
+      if(gotResult){
+        const text = fText.value.trim();
+        const parsed = parseWhen(text);
+        openSheet(null, text);
+        if(parsed){
+          const d = new Date(parsed);
+          fTime.value = pad(d.getHours()) + ":" + pad(d.getMinutes());
+          fDate.value = d.toISOString().slice(0,10);
+          const todayStr = todayISO(0);
+          selected.day = (fDate.value === todayStr) ? "today" : "tomorrow";
+          setSeg(segDay, selected.day);
+        }
+      }
+    };
+  }
+
+  gotResult = false;
+  fText.value = "";
+  try{
+    recognition.start();
+    isRecording = true;
+    micBtn.classList.add("rec");
+    micLabel.textContent = "Говорите…";
+  }catch(e){}
+}
+
+function stopVoice(){
+  isRecording = false;
+  micBtn.classList.remove("rec");
+  micLabel.textContent = "Сказать задачу";
+  if(recognition){
+    try{ recognition.stop(); }catch(e){}
+  }
+}
+
+micBtn.onclick = function(){
+  if(isRecording){
+    stopVoice();
+  } else {
+    startVoice();
+  }
+};
+
+$("addBtn").onclick = function(){
+  unlockAudio();
+  askNotify();
+  openSheet(null, "");
+};
+
+document.querySelectorAll(".tab").forEach(function(b){
+  b.onclick = function(){
+    document.querySelectorAll(".tab").forEach(function(x){ x.classList.remove("on"); });
+    b.classList.add("on");
+    state.activeFilter = b.getAttribute("data-c");
+    save();
+    render();
+  };
+});
+
+function showWarnBar(){
+  const bar = $("warnBar");
+  const parts = [];
+  if(!SR){
+    parts.push("Голосовой ввод не поддерживается — на iPhone откройте в Chrome и вводите вручную через ✏️.");
+  }
+  if(!("Notification" in window)){
+    parts.push("Уведомления браузер не поддерживает — напоминания будут со звуком и карточкой, пока приложение открыто.");
+  } else if(Notification.permission === "denied"){
+    parts.push("Уведомления запрещены в настройках браузера. Включите их, чтобы напоминания приходили даже когда вкладка свёрнута.");
+  }
+  parts.push("⚠️ Вкладку нужно оставить открытой (можно в фоне) — тогда напоминания точно сработают.");
+  if(parts.length){
+    const d = document.createElement("div");
+    d.className = "warn-bar";
+    d.innerHTML = parts.join("<br>");
+    bar.appendChild(d);
+  }
+}
+
+load();
+showWarnBar();
+render();
+setTimeout(checkReminders, 1500);
+setTimeout(askNotify, 3000);
+
+window.addEventListener("beforeunload", save);
+
+})();
+</script>
+</body>
+</html>
